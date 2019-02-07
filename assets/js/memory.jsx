@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import _ from 'lodash';
 import $ from 'jquery';
 
-export default function game_init(root) {
+export default function  memory_init(root) {
   ReactDOM.render(<Memory />, root);
 }
 
