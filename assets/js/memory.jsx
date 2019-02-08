@@ -3,41 +3,33 @@ import ReactDOM from 'react-dom';
 import _ from 'lodash';
 import $ from 'jquery';
 
-export default function  memory_init(root) {
-  ReactDOM.render(<Memory />, root);
+export default function  memory_init(root, channel) {
+  ReactDOM.render(<Memory channel={channel} />, root);
 }
 
-// App state for memory is:
-// clicks: number of clicks so far
-// {randomTiles: [List of tiles in random order]}
-// matchedTiles: number of matched tiles 
-// flippedTiles: currently flipped and active tiles
-//
-// A tile is:
-// {value: String, index: Int, matched: Bool. visible: Bool}
 
 class Memory extends React.Component {
   constructor(props) {
     super(props);
+    this.channel = props.channel;
     this.state = {
       clicks: 0,
-      randomTiles: this.generateTiles(),
+      randomTiles: [],
       matchedTiles: 0,
       flippedTiles: [],
     };
+
+    this.channel.join()
+      .receive("ok", this.gotView.bind(this))
+      .receive("error", resp => {console.log("Unable to join", resp) });
   }
 
-  // Generatetiles: generates a random list of tiles by shuffling the possible values
-  // Each tile has a value, index, and two booleans for being matched and visible
-  generateTiles() {
-    let randomTiles = _.shuffle(['A', 'A', 'B', 'B', 'C', 'C', 'D', 'D',
-                                 'E', 'E', 'F', 'F', 'G', 'G', 'H', 'H'])
-
-    return _.map(randomTiles, (value, index) => {
-      return {value: value, index: index, matched: false, visible: false};
-    });
+  gotView(view) {
+    console.log("new view", view);
+    this.setState(view.game);
   }
 
+/*
   reset() {
     this.setState({
       clicks: 0,
@@ -46,85 +38,28 @@ class Memory extends React.Component {
       flippedTiles: [],
     });
   }
+*/
 
-  // flipTile: Flips the tile at certain inded
-  // @param index is the index of the tile in the list
-  flipTile(index) {
-    // map through the list and only make the tile at the index visible
-    let xs = _.map(this.state.randomTiles, (tile) => {
-      if (tile.index == index) {
-        return _.extend(tile, {visible: true});
-      }
-      else {
-        return tile
-      }
-    });
-
-    // Add the tile to the list of flipped tiles
-    let flippedTiles = this.state.flippedTiles;
-    flippedTiles.push(this.state.randomTiles[index]);
-
-    // Return a new state and trigger render
-    this.setState({
-      clicks: this.state.clicks + 1,
-      randomTiles: xs,
-      matchedTiles: this.state.matchedTiles,
-      flippedTiles: flippedTiles,
-    });
-
-    // If there are two tiles flipped then check if the match
-    if(flippedTiles.length == 2) {
-      var that = this;
-      setTimeout(function(){that.checkMatch();}, 2000);
-    }
+  flipTile(value, index) {
+    this.channel.push("flipTile", {value: value, index: index})
+    .receive("ok", this.gotView.bind(this))
+    .receive("checkMatch", this.checkMatch.bind(this));
   }
 
-  // checkMatch: check if the two flipped tiles match
-  checkMatch() {
-    let xs = this.state.randomTiles;
-    let flippedTiles = this.state.flippedTiles;
-    let tile1 = flippedTiles[0];
-    let tile2 = flippedTiles[1];
-    let matchedTiles = this.state.matchedTiles;
-
-    // If the two values match, then keep the tiles flipped
-    // and increment the matched tiles by 2
-    if (tile1.value == tile2.value) {
-      xs = _.map(xs, (tile) => {
-        if (tile.index == tile1.index || tile.index == tile2.index) {
-          return _.extend(tile, {matched: true});
-        }
-        else {
-          return tile
-        }
-      });
-      flippedTiles = [];
-      matchedTiles+=2;
-    }
-    // If the two values do not match, flip them again and remove the tiles
-    // from the list of flipped tiles
-    else {
-      xs = _.map(xs, (tile) => {
-        if (tile.index == tile1.index || tile.index == tile2.index) {
-          return _.extend(tile, {visible: false});
-        }
-        else {
-          return tile
-        }
-      });
-      flippedTiles = [];
-    }
-
-    // Return a new state and render
-    this.setState({
-      clicks: this.state.clicks,
-      randomTiles: xs,
-      matchedTiles: matchedTiles,
-      flippedTiles: flippedTiles,
-    });
+  checkMatch(view){
+    this.gotView(view);
+    setTimeout(() => {this.channel.push("checkMatch").receive("ok", this.gotView.bind(this))}, 1000);
   }
+
+  reset(ev) {
+    this.channel.push("reset")
+    .receive("ok", this.gotView.bind(this))
+  }
+
+
 
   render() {
+    console.log("render");
     let tiles = _.map(this.state.randomTiles, (tile, index) => {
       return <TileItem tile={tile} flipTile={this.flipTile.bind(this)} key={index} />;
     });
@@ -154,7 +89,7 @@ function TileItem(props) {
     return <button className="Tile" id={tile.index} disabled>{tile.value}</button>
   }
   else {
-    return <button className="Tile" id={tile.index} onClick={() => props.flipTile(tile.index)}>Tile</button>
+    return <button className="Tile" id={tile.index} onClick={() => props.flipTile(tile.value, tile.index)}>Tile</button>
   }
 }
 
