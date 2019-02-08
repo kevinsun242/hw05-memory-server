@@ -40,7 +40,7 @@ defmodule Memory do
     if length(game.flippedTiles) == 2 do
       game = checkMatch(game)
     else 
-      game = flipHelper(game, value, index);
+      game = flipHelper(game, value, index)
       if length(game.flippedTiles) == 2 do
         game = checkMatch(game)
       else
@@ -53,8 +53,17 @@ defmodule Memory do
     randomTiles = game.randomTiles
     flippedTiles = game.flippedTiles
 
-    newRandomTiles = List.replace_at(randomTiles, index, Map.put(Enum.at(randomTiles, index), :visible, true))
-    newFlippedTiles = [%{value: value, index: index}]++ flippedTiles
+
+    newRandomTiles = Enum.map(randomTiles, fn (tile) ->
+      if Map.fetch!(tile, :value) == value && Map.fetch!(tile, :index) == index do
+        Map.put(tile, :visible, true)
+      else
+        tile
+      end
+    end
+    )
+
+    newFlippedTiles = [%{value: value, index: index}] ++ flippedTiles
 
     game = Map.put(game, :randomTiles, newRandomTiles)
     game = Map.put(game, :flippedTiles, newFlippedTiles)
@@ -73,25 +82,47 @@ defmodule Memory do
     tile2index = tile2.index
 
     if tile1.value == tile2.value do
-      newRandomTiles = List.replace_at(randomTiles, tile1index, Map.put(Enum.at(randomTiles, tile1index), :matched, true))
-      newRandomTiles = List.replace_at(randomTiles, tile2index, Map.put(Enum.at(randomTiles, tile2index), :matched, true))
-
-      %{
-        clicks: clicks,
-        randomTiles: newRandomTiles,
-        matchedTiles: matchedTiles + 2,
-        flippedTiles: [],
-      }
-    else      
-      newRandomTiles = List.replace_at(randomTiles, tile1index, Map.put(Enum.at(randomTiles, tile1index), :visible, false))
-      newRandomTiles = List.replace_at(randomTiles, tile1index, Map.put(Enum.at(randomTiles, tile1index), :visible, false))
-
-      %{
-        clicks: clicks,
-        randomTiles: newRandomTiles,
-        matchedTiles: matchedTiles,
-        flippedTiles: [],
-      }
+    
+      newRandomTiles = Enum.map(randomTiles, fn (tile) ->
+        if Map.fetch!(tile, :value) == Map.fetch(tile1, :value) && Map.fetch!(tile, :index) == Map.fetch!(tile1, :index) do
+          Map.put(tile, :matched, true)
+        else
+          tile
+        end
+        end
+      )      
+      newRandomTiles = Enum.map(randomTiles, fn (tile) ->
+        if Map.fetch!(tile, :value) == Map.fetch(tile2, :value) && Map.fetch!(tile, :index) == Map.fetch!(tile2, :index) do
+          Map.put(tile, :matched, true)
+        else
+          tile
+        end
+        end
+      )  
+      game = Map.put(game, :randomTiles, newRandomTiles)
+      game = Map.put(game, :matchedTiles, matchedTiles + 2)
+      game = Map.put(game, :flippedTiles, [])
+      
+    else
+      newRandomTiles = Enum.map(randomTiles, fn (tile) ->
+        if Map.fetch!(tile, :value) == Map.fetch(tile1, :value) && Map.fetch!(tile, :index) == Map.fetch!(tile1, :index) do
+          Map.put(tile, :visible, false)
+        else
+          tile
+        end
+        end
+      )  
+      newRandomTiles = Enum.map(randomTiles, fn (tile) ->
+        if Map.fetch!(tile, :value) == Map.fetch(tile2, :value) && Map.fetch!(tile, :index) == Map.fetch!(tile2, :index) do
+          Map.put(tile, :visible, false)
+        else
+          tile
+        end
+        end
+      )  
+      game = Map.put(game, :randomTiles, newRandomTiles)
+      game = Map.put(game, :flippedTiles, [])
+      
     end
   end
 
